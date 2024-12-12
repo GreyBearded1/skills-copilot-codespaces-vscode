@@ -1,0 +1,286 @@
+import pygame
+import sys
+import os
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Screen dimensions
+screen_width = 600
+screen_height = 800
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Grazy Goose")
+
+# Colors
+white = (255, 255, 255)
+black = (0, 0, 0)
+grey = (128, 128, 128)
+red = (255, 0, 0)
+
+# Font settings
+menu_font = pygame.font.Font(None, 75)
+
+# Load images
+current_dir = os.path.dirname(os.path.abspath(__file__))
+title_image_path = os.path.join(current_dir, 'Assets', 'CGT1.png')
+pause_image_path = os.path.join(current_dir, 'Assets', 'pause.png')
+
+# Check if the files exist
+if not os.path.exists(title_image_path):
+    print(f"Error: {title_image_path} does not exist.")
+    sys.exit()
+
+if not os.path.exists(pause_image_path):
+    print(f"Error: {pause_image_path} does not exist.")
+    sys.exit()
+
+title_image = pygame.image.load(title_image_path).convert_alpha()
+title_image = pygame.transform.scale(title_image, (screen_width, screen_height // 2))
+
+pause_image = pygame.image.load(pause_image_path).convert_alpha()
+pause_image = pygame.transform.scale(pause_image, (30, 30))
+pause_image.set_colorkey(white)  # Set colorkey to white for transparency
+
+# Global variables
+levelReached = 0
+menu_options = ["Start", "Continue", "Options", "Credits", "Exit"]
+selected_option = 0
+direction_0 = 1  # 1 for right, -1 for left
+direction_1 = -1  # 1 for right, -1 for left
+v_direction_0 = 0  # 1 move down 50, 0 for stay put
+option_spacing = 70
+
+
+def goose_invaders_L1():
+    print("Level 1 selected. Expand this function to add settings.")
+    
+    global levelReached  # To modify levelReached when the player progresses
+    global direction_0   # 1 for right, -1 for left
+    global direction_1   # 1 for right, -1 for left
+    global v_direction_0  # 1 move down 50, 0 for stay put
+
+# Load background image
+background_image_path = os.path.join(current_dir, 'Assets', 'bg_01.png')
+background_image = pygame.image.load(background_image_path).convert()
+
+# Movement speed variables
+goose_speed = 0.1  # Variable to control the movement speed of the geese
+# Variable to control the movement speed of the player's bullets
+bullet_speed = 2
+
+# Duck settings
+duck_x = 300
+duck_y = 700
+duck_speed = 0.3
+player_hp = 1  # Player starts with 1 hit point
+max_bullets = 5  # Max number of player bullets
+
+# Load duck image
+duck_image = pygame.image.load(os.path.join(current_dir, 'Assets', 'DuckPlayer.png')).convert_alpha()
+duck_image.set_colorkey(white)  # Set colorkey to white for transparency
+
+# Load bullet image
+bullet_image = pygame.image.load(os.path.join(current_dir, 'Assets', 'bullet1.png')).convert_alpha()
+bullet_image.set_colorkey(white)
+bullets = []
+
+# Load goose images
+goose_images = [
+    pygame.image.load(os.path.join(current_dir, 'Assets', 'aliensprite1.png')).convert_alpha(),
+    pygame.image.load(os.path.join(current_dir, 'Assets', 'aliensprite2w.png')).convert_alpha(),
+    pygame.image.load(os.path.join(current_dir, 'Assets', 'aliensprite3w.png')).convert_alpha(),
+    pygame.image.load(os.path.join(current_dir, 'Assets', 'aliensprite4w.png')).convert_alpha(),
+    pygame.image.load(os.path.join(current_dir, 'Assets', 'aliensprite7w.png')).convert_alpha()
+]
+
+for image in goose_images:
+    image.set_colorkey(white)  # Set colorkey to white for transparency
+
+# Create geese
+geese = []
+for row in range(5):
+    for col in range(10):
+        geese.append({"image": goose_images[row], "x": 100 + col * 40, "y": 100 + row * 50})
+
+
+def draw_background():
+    screen.blit(background_image, (0, 0))
+
+
+def draw_duck(x, y):
+    screen.blit(duck_image, (x, y))
+
+
+def draw_bullets(bullets):
+    for bullet in bullets:
+        screen.blit(bullet_image, bullet)
+        
+        
+def check_collision(duck_x, duck_y, geese, player_hp):
+    duck_rect = pygame.Rect(duck_x, duck_y, duck_image.get_width(), duck_image.get_height())
+    geese_to_remove = []
+    for goose in geese:
+        goose_rect = pygame.Rect(goose["x"], goose["y"], goose["image"].get_width(), goose["image"].get_height())
+        if duck_rect.colliderect(goose_rect):
+            player_hp -= 1
+            geese_to_remove.append(goose)
+            if player_hp <= 0:
+                player_hp = 0  # Ensure player_hp does not go below 0
+                break
+    for goose in geese_to_remove:
+        geese.remove(goose)
+    return player_hp, geese
+    
+    
+def check_bullet_collision(bullets, geese):
+    bullets_to_remove = []
+    geese_to_remove = []
+    for bullet in bullets:
+        bullet_rect = pygame.Rect(bullet[0], bullet[1], bullet_image.get_width(), bullet_image.get_height())
+        for goose in geese:
+            goose_rect = pygame.Rect(goose["x"], goose["y"], goose["image"].get_width(), goose["image"].get_height())
+            if bullet_rect.colliderect(goose_rect):
+                bullets_to_remove.append(bullet)
+                geese_to_remove.append(goose)
+    for bullet in bullets_to_remove:
+        bullets.remove(bullet)
+    for goose in geese_to_remove:
+        geese.remove(goose)
+    return bullets, geese
+
+    def draw_geese(geese):
+        for goose in geese:
+            screen.blit(goose["image"], (goose["x"], goose["y"]))
+            return geese
+
+    def move_geese(geese, goose_speed):
+        global direction_0
+        global direction_1
+        global v_direction_0
+
+        left_most_goose_0_x = min(goose["x"] for goose in geese if goose["image"] == goose_images[0])
+        right_most_goose_0_x = max(goose["x"] for goose in geese if goose["image"] == goose_images[0])
+        left_most_goose_1_x = min(goose["x"] for goose in geese if goose["image"] == goose_images[1])
+        right_most_goose_1_x = max(goose["x"] for goose in geese if goose["image"] == goose_images[1])
+
+        # Check if rightmost goose reaches screen_width - 10
+        if direction_0 == 1 and right_most_goose_0_x >= screen_width - 50:
+            direction_0 = -1
+
+        # Check if leftmost goose reaches the width of goose_images[0] + 10
+        if direction_0 == -1 and left_most_goose_0_x <= 10:
+            direction_0 = 1
+
+        # Check if rightmost goose reaches screen_width - 10 of goose_images[1]
+        if direction_1 == 1 and right_most_goose_1_x >= screen_width - 50:
+            direction_1 = -1
+
+        # Check if leftmost goose reaches the width of goose_images[1] + 10
+        if direction_1 == -1 and left_most_goose_1_x <= 10:
+            direction_1 = 1
+
+    # Move down a row
+        if left_most_goose_0_x <= 10:
+            v_direction_0 = 1
+
+        for goose in geese:
+            if goose["image"] == goose_images[0] and direction_0 == 1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[0] and direction_0 == -1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[1] and direction_1 == 1:
+                goose["x"] += (direction_1 * goose_speed)
+            if goose["image"] == goose_images[1] and direction_1 == -1:
+                goose["x"] += (direction_1 * goose_speed)
+            if goose["image"] == goose_images[2] and direction_0 == 1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[2] and direction_0 == -1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[3] and direction_1 == 1:
+                goose["x"] += (direction_1 * goose_speed)
+            if goose["image"] == goose_images[3] and direction_1 == -1:
+                goose["x"] += (direction_1 * goose_speed)
+            if goose["image"] == goose_images[4] and direction_0 == 1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[4] and direction_0 == -1:
+                goose["x"] += (direction_0 * goose_speed)
+            if goose["image"] == goose_images[0] and v_direction_0 == 1:
+                goose["y"] += 50
+            if goose["image"] == goose_images[1] and v_direction_0 == 1:
+                goose["y"] += 50
+            if goose["image"] == goose_images[2] and v_direction_0 == 1:
+                goose["y"] += 50
+            if goose["image"] == goose_images[3] and v_direction_0 == 1:
+                goose["y"] += 50
+            if goose["image"] == goose_images[4] and v_direction_0 == 1:
+                goose["y"] += 50
+
+    return geese, goose_speed
+
+
+running = True
+duck_x_change = 0
+
+
+
+  def options():
+     rint("Options selected. Expand this function to add settings.")
+
+  def credits():
+     print("Credits selected. Add your credits here.")
+
+  def draw_menu():
+     global option_spacing
+        screen.fill(black)  # Fill the screen with black
+        screen.blit(title_image, (0, 0))  # Draw the title image at the top half
+        option_spacing = 70  # Adjust the spacing between options
+
+    for idx, option in enumerate(menu_options):
+        if option == "Continue" and levelReached < 1:
+            color = grey  # Grey color for disabled option
+        else:
+            color = red if idx == selected_option else white
+
+        # Center the menu options in the lower half with adjusted vertical space and move up 30 pixels
+        text = menu_font.render(option, True, color)
+        text_rect = text.get_rect(center=(screen_width // 2, screen_height // 2 + screen_height // 4 + idx * option_spacing - (len(menu_options) * 20) - 30))
+        screen.blit(text, text_rect)  # Draw the menu options
+
+    pygame.display.update()  # Update the display
+
+
+def main_menu():
+    global selected_option
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    selected_option = (selected_option - 1) % len(menu_options)
+                if event.key == pygame.K_DOWN:
+                    selected_option = (selected_option + 1) % len(menu_options)
+                if event.key == pygame.K_RETURN:
+                    if selected_option == 0:  # Start Game
+                        goose_invaders_L1()
+                    elif selected_option == 1 and levelReached >= 1:  # Continue
+                        goose_invaders_L1()
+                    elif selected_option == 2:  # Options
+                        options()
+                    elif selected_option == 3:  # Credits
+                        credits()
+                    elif selected_option == 4:  # Exit
+                        running = False
+
+        draw_menu()
+        pygame.display.update()
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == "__main__":
+    main_menu()
